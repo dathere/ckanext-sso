@@ -3,27 +3,23 @@
 from __future__ import unicode_literals
 
 import logging
-import helper
 
-from ckan import plugins
-from ckan.plugins import toolkit
-from pylons import config
-from urlparse import urlparse
-
+import ckan.plugins as plugins
+import ckan.plugins.toolkit as toolkit
 import ckan.model as model
-from ckan.lib.helpers import redirect_to as redirect
+
+import ckanext.sso.helper as helper
 
 log = logging.getLogger(__name__)
 
 class SSOPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IAuthenticator, inherit=True)
-    plugins.implements(plugins.IConfigurer)
+    plugins.implements(plugins.IConfigurable)
 
     def __init__(self, name=None):
         self.sso_helper = helper.SSOHelper()
 
-    def update_config(self,config):
-        return None
+
 
     def configure(self, config):
         required_keys = (
@@ -43,29 +39,28 @@ class SSOPlugin(plugins.SingletonPlugin):
                 raise RuntimeError('Required configuration option {0} not found.'.format(key))
 
     def identify(self):
-        if not getattr(toolkit.c, u'user', None):
+        if not getattr(toolkit.g, u'user', None):
             self._identify_user_default()
-        if toolkit.c.user and not getattr(toolkit.c, u'userobj', None):
-            toolkit.c.userobj = model.User.by_name(toolkit.c.user)
+        if toolkit.g.user and not getattr(toolkit.g, u'userobj', None):
+            toolkit.g.userobj = model.User.by_name(toolkit.g.user)
 
     def _identify_user_default(self):
-        toolkit.c.user = toolkit.request.environ.get(u'REMOTE_USER', u'')
-        if toolkit.c.user:
-            toolkit.c.user = toolkit.c.user.decode(u'utf8')
-            toolkit.c.userobj = model.User.by_name(toolkit.c.user)
-            if toolkit.c.userobj is None or not toolkit.c.userobj.is_active():
-                ev = request.environ
+        toolkit.g.user = toolkit.request.environ.get(u'REMOTE_USER', u'')
+        if toolkit.g.user:
+            toolkit.g.userobj = model.User.by_name(toolkit.g.user)
+            if toolkit.g.userobj is None or not toolkit.g.userobj.is_active():
+                ev = toolkit.request.environ
                 if u'repoze.who.plugins' in ev:
                     pth = getattr(ev[u'repoze.who.plugins'][u'friendlyform'],
                           u'logout_handler_path')
-                redirect(pth)
+                toolkit.redirect_to(pth)
         else:
-            toolkit.c.userobj = self._get_user_info()
-            if 'name' in dir(toolkit.c.userobj) :
-                toolkit.c.user = toolkit.c.userobj.name
-                toolkit.c.author = toolkit.c.userobj.name
-                log.debug('toolkit.c.userobj.id :' + toolkit.c.userobj.id)
-                log.debug('toolkit.c.userobj.name :' + toolkit.c.userobj.name)
+            toolkit.g.userobj = self._get_user_info()
+            if 'name' in dir(toolkit.g.userobj) :
+                toolkit.g.user = toolkit.g.userobj.name
+                toolkit.g.author = toolkit.g.userobj.name
+                log.debug('toolkit.g.userobj.id :' + toolkit.g.userobj.id)
+                log.debug('toolkit.g.userobj.name :' + toolkit.g.userobj.name)
 
     def _get_user_info(self):
         authorizationKey = toolkit.request.headers.get(u'Authorization', u'')

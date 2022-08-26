@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-
-import ckan.model as model
-import json
 import logging
-import os
+
+from ckan.common import _, config
+import ckan.model as model
+
 from six.moves.urllib.parse import urljoin
 from base64 import b64encode, b64decode
-from pylons import config
 from keycloak.realm import KeycloakRealm
+
 
 log = logging.getLogger(__name__)
 
