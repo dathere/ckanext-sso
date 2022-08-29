@@ -3,9 +3,14 @@
 from __future__ import unicode_literals
 
 import logging
+from os import access
+import requests
+import secrets
+
+from base64 import b64encode, b64decode
 
 import ckan.plugins as plugins
-import ckan.plugins.toolkit as toolkit
+import ckan.plugins.toolkit as tk
 import ckan.model as model
 
 import ckanext.sso.helper as helper
@@ -18,74 +23,66 @@ class SSOPlugin(plugins.SingletonPlugin):
 
     def __init__(self, name=None):
         self.sso_helper = helper.SSOHelper()
-
-
+        self.login_url = tk.config.get('ckan.sso.login_url')
+        self.redirect_url = tk.config.get('ckan.sso.redirect_url')
+        self.response_type = tk.config.get('ckan.sso.response_type')
+        self.scope = tk.config.get('ckan.sso.scope')
+        self.client_id = tk.config.get('ckan.sso.client_id')
+        self.client_secret = tk.config.get('ckan.sso.client_secret')
+        self.identity_provider = tk.config.get('ckan.sso.identity_provider')
+        self.access_token_url = tk.config.get('ckan.sso.access_token_url')
+        self.user_info = tk.config.get('ckan.sso.user_info')
+        self.access_token = None
+    
 
     def configure(self, config):
         required_keys = (
             'ckan.sso.authorization_endpoint',
+            'ckan.sso.login_url',
             'ckan.sso.client_id',
             'ckan.sso.client_secret',
-            'ckan.sso.realm',
-            'ckan.sso.profile_username_field',
-            'ckan.sso.profile_fullname_field',
-            'ckan.sso.profile_email_field',
-            'ckan.sso.profile_group_field',
-            'ckan.sso.sysadmin_group_name',
-            'ckan.sso.profile_group_delim'
+            'ckan.sso.redirect_url',
+            'ckan.sso.identity_provider',
+            'ckan.sso.response_type',
+            'ckan.sso.scope'
         )
         for key in required_keys:
             if config.get(key) is None:
                 raise RuntimeError('Required configuration option {0} not found.'.format(key))
 
+    def login(self):
+
+        # query_string = {'client_id': self.client_id,
+        #         'response_type': self.response_type,
+        #         'scope': self.scope,
+        #         'redirect_uri': self.redirect_url,
+        #         'identity_provider': self.identity_provider
+        #         }
+        return tk.redirect_to(self.login_url)
+
     def identify(self):
-        if not getattr(toolkit.g, u'user', None):
-            self._identify_user_default()
-        if toolkit.g.user and not getattr(toolkit.g, u'userobj', None):
-            toolkit.g.userobj = model.User.by_name(toolkit.g.user)
+        id_token = tk.request.args.get('id_token', None)
+        if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None) or tk.request.endpoint != 'static':
+            self._identify_user_default(id_token)
 
-    def _identify_user_default(self):
-        toolkit.g.user = toolkit.request.environ.get(u'REMOTE_USER', u'')
-        if toolkit.g.user:
-            toolkit.g.userobj = model.User.by_name(toolkit.g.user)
-            if toolkit.g.userobj is None or not toolkit.g.userobj.is_active():
-                ev = toolkit.request.environ
-                if u'repoze.who.plugins' in ev:
-                    pth = getattr(ev[u'repoze.who.plugins'][u'friendlyform'],
-                          u'logout_handler_path')
-                toolkit.redirect_to(pth)
-        else:
-            toolkit.g.userobj = self._get_user_info()
-            if 'name' in dir(toolkit.g.userobj) :
-                toolkit.g.user = toolkit.g.userobj.name
-                toolkit.g.author = toolkit.g.userobj.name
-                log.debug('toolkit.g.userobj.id :' + toolkit.g.userobj.id)
-                log.debug('toolkit.g.userobj.name :' + toolkit.g.userobj.name)
+        # if tk.g.user and not getattr(tk.g, u'userobj', None):
+        #     tk.g.userobj = model.User.by_name(tk.g.user)
 
-    def _get_user_info(self):
-        authorizationKey = toolkit.request.headers.get(u'Authorization', u'')
-        if not authorizationKey:
-            authorizationKey = toolkit.request.environ.get(u'Authorization', u'')
-        if not authorizationKey:
-            authorizationKey = toolkit.request.environ.get(u'HTTP_AUTHORIZATION', u'')
-        if not authorizationKey:
-            authorizationKey = toolkit.request.environ.get(u'Authorization', u'')
-            if u' ' in authorizationKey:
-                authorizationKey = u''
-        if not authorizationKey:
-            return None
+    def _identify_user_default(self, id_token):
+        if tk.request.endpoint != 'static':
+            breakpoint()
+            id_token = tk.request.args.get('id_token', None)   
+            if id_token:
+                access_token = tk.request.args.get('access_token', None)
+                user = self.get_user_info(access_token)
 
-        authorizationKey = authorizationKey.decode(u'utf8', u'ignore')
-        if authorizationKey.startswith("Bearer "):
-            authorizationKey = authorizationKey[len("Bearer ")::]
-            
-        user = None
-        query = model.Session.query(model.User)
-        user = query.filter_by(apikey=authorizationKey).first()
-        if user == None :
-            try:
-                user = self.sso_helper.identify(authorizationKey)
-                user = query.filter_by(name=user).first()
-            except Exception as e:
-                log.error( e.message)
-        return user
+
+
+    def get_user_info(self, access_token):
+        breakpoint()
+        # credentials = f"{self.client_id}:{self.client_secret}"
+        # authorization = b64encode(credentials.encode('utf=8'))
+
+        headers = {'Authorization': f'Bearer {access_token}'}
+        result = requests.get(self.user_info, headers=headers)
+        print(result)
