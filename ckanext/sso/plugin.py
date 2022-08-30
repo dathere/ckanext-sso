@@ -5,6 +5,8 @@ from __future__ import unicode_literals
 import logging
 from os import access
 import requests
+import urllib.parse
+
 import secrets
 
 from base64 import b64encode, b64decode
@@ -52,13 +54,14 @@ class SSOPlugin(plugins.SingletonPlugin):
 
     def login(self):
 
-        # query_string = {'client_id': self.client_id,
-        #         'response_type': self.response_type,
-        #         'scope': self.scope,
-        #         'redirect_uri': self.redirect_url,
-        #         'identity_provider': self.identity_provider
-        #         }
-        return tk.redirect_to(self.login_url)
+        query_string = {'client_id': self.client_id,
+                'response_type': self.response_type,
+                'scope': self.scope,
+                'redirect_uri': self.redirect_url,
+                'identity_provider': self.identity_provider
+                }
+        url = self.login_url + urllib.parse.urlencode(query_string)
+        return tk.redirect_to(url)
 
     def identify(self):
         id_token = tk.request.args.get('id_token', None)
