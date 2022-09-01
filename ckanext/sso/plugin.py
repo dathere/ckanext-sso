@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import logging
 from os import access
+from wsgiref import headers
 import requests
 import urllib.parse
 
@@ -64,28 +65,44 @@ class SSOPlugin(plugins.SingletonPlugin):
         return tk.redirect_to(url)
 
     def identify(self):
-        id_token = tk.request.args.get('id_token', None)
+        authorization_code = tk.request.args.get('code', None)
+        if not authorization_code:
+            return False
+
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None) or tk.request.endpoint != 'static':
-            self._identify_user_default(id_token)
+            self._identify_user_default(authorization_code)
 
         # if tk.g.user and not getattr(tk.g, u'userobj', None):
         #     tk.g.userobj = model.User.by_name(tk.g.user)
 
-    def _identify_user_default(self, id_token):
-        if tk.request.endpoint != 'static':
-            breakpoint()
-            id_token = tk.request.args.get('id_token', None)   
-            if id_token:
-                access_token = tk.request.args.get('access_token', None)
-                user = self.get_user_info(access_token)
+    def _identify_user_default(self, authorization_code):
+        if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None):
+            access_token = self._get_access_token(authorization_code)
+            if access_token:
+                self.get_user_info(access_token)
+        
 
+    def _get_access_token(self, authorization_code):
+        credentials = bytes(f"{self.client_id}:{self.client_secret}", 'utf-8')
+        authorization = b64encode(credentials).decode()
+        print("Authorization: ", authorization)
+        headers = {'Authorization': f'Basic {authorization}',
+                    'Content-Type': 'application/x-www-form-urlencoded'}
+        params = {
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'code': authorization_code,
+            'grant_type': 'authorization_code',
+            'redirect_uri': self.redirect_url,
+            'scope': 'openid email'
+        }
+        response = requests.request("POST", self.access_token_url, headers=headers, params=params)
+        return response.json()
 
 
     def get_user_info(self, access_token):
-        breakpoint()
-        # credentials = f"{self.client_id}:{self.client_secret}"
-        # authorization = b64encode(credentials.encode('utf=8'))
-
-        headers = {'Authorization': f'Bearer {access_token}'}
+        token = access_token['access_token']
+        headers = {'Authorization': f'Bearer {token}'}
         result = requests.get(self.user_info, headers=headers)
-        print(result)
+        print('***************************************************')
+        print(result.text)
