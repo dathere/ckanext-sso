@@ -29,7 +29,5 @@ ckan.sso.response_type = code
 ckan.sso.scope = openid
 ckan.sso.access_token_url = https://ckan.auth.us-east-1.amazoncognito.com/oauth2/token
 ckan.sso.user_info = https://ckan.auth.us-east-1.amazoncognito.com/oauth2/userInfo
-
-
 ```
 5) Restart CKAN if it was already running
