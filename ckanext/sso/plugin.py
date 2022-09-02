@@ -15,6 +15,7 @@ from base64 import b64encode, b64decode
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as tk
 import ckan.model as model
+from ckan.views.user import set_repoze_user
 
 import ckanext.sso.helper as helper
 
@@ -70,22 +71,33 @@ class SSOPlugin(plugins.SingletonPlugin):
             return False
 
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None) or tk.request.endpoint != 'static':
-            self._identify_user_default(authorization_code)
+            user = self._identify_user_default(authorization_code)
+            if user:
+                # log the user in programmatically
+                tk.g.user = user.get('name')
+                tk.g.userobj = user
+                response = tk.redirect_to(self.redirect_url)
+                set_repoze_user(tk.g.user, response)
+                return response
+        
+        return None
+   
 
-        # if tk.g.user and not getattr(tk.g, u'userobj', None):
-        #     tk.g.userobj = model.User.by_name(tk.g.user)
 
     def _identify_user_default(self, authorization_code):
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None):
             access_token = self._get_access_token(authorization_code)
             if access_token:
-                self.get_user_info(access_token)
+                user_info = self.get_user_info(access_token)
+                if user_info:
+                    user = self._get_or_create_user(user_info)
+                    if user:
+                        return user
         
 
     def _get_access_token(self, authorization_code):
         credentials = bytes(f"{self.client_id}:{self.client_secret}", 'utf-8')
         authorization = b64encode(credentials).decode()
-        print("Authorization: ", authorization)
         headers = {'Authorization': f'Basic {authorization}',
                     'Content-Type': 'application/x-www-form-urlencoded'}
         params = {
@@ -96,7 +108,10 @@ class SSOPlugin(plugins.SingletonPlugin):
             'redirect_uri': self.redirect_url,
             'scope': 'openid email'
         }
-        response = requests.request("POST", self.access_token_url, headers=headers, params=params)
+        try:
+            response = requests.request("POST", self.access_token_url, headers=headers, params=params)
+        except tk.ValidationError:
+            return False
         return response.json()
 
 
@@ -104,5 +119,36 @@ class SSOPlugin(plugins.SingletonPlugin):
         token = access_token['access_token']
         headers = {'Authorization': f'Bearer {token}'}
         result = requests.get(self.user_info, headers=headers)
-        print('***************************************************')
-        print(result.text)
+        return result.json()
+    
+
+    def _get_or_create_user(self, user_info):
+        context = self._prepare_context()
+        try:    
+            user = tk.get_action('user_show')(context, {'id': user_info['username']})
+            return user
+        except tk.ObjectNotFound:
+            user_dict = {
+                'name': user_info['username'],
+                'email': user_info['email'],
+                'password': secrets.token_urlsafe(16),
+                'plugin_extras': {
+                    'sso': user_info['sub']
+                }
+            }
+            user = tk.get_action('user_create')(context, user_dict) 
+            return user
+
+    def _prepare_context(self):
+        site_user = tk.get_action(u'get_site_user')({
+            u'model': model,
+            u'ignore_auth': True},
+            {}
+        )
+        context = {
+            u'model': model,
+            u'session': model.Session,
+            u'ignore_auth': True,
+            u'user': site_user['name'],
+        }
+        return context
