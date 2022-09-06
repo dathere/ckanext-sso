@@ -128,8 +128,10 @@ class SSOPlugin(plugins.SingletonPlugin):
             
             user_obj = model.Session.by_email(user_info['email'])
             user = tk.get_action('user_show')(context, {'id': user_obj.id})
+            log.debug=f"User found {user}"
             return user
         except tk.ObjectNotFound:
+            log.debug("User not found, attempt to create it")
             user_dict = {
                 'name': user_info['username'].split('@')[0],
                 'email': user_info['email'],
