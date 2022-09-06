@@ -135,7 +135,7 @@ class SSOPlugin(plugins.SingletonPlugin):
             user_dict = {
                 'name': user_info['username'].split('@')[0],
                 'email': user_info['email'],
-                'full_name': user_info['name']
+                'full_name': user_info['name'],
                 'password': secrets.token_urlsafe(16),
                 'plugin_extras': {
                     'sso': user_info['sub']
