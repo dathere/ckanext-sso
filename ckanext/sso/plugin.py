@@ -55,21 +55,27 @@ class SSOPlugin(plugins.SingletonPlugin):
                 raise RuntimeError('Required configuration option {0} not found.'.format(key))
 
     def login(self):
-
+        if tk.request.cookies.get('auth_tkt'):
+            log.debug("User already logged in")
+            return tk.redirect_to(self.redirect_url)
         query_string = {'client_id': self.client_id,
-                'response_type': self.response_type,
-                'scope': self.scope,
-                'redirect_uri': self.redirect_url,
-                'identity_provider': self.identity_provider
-                }
+            'response_type': self.response_type,
+            'scope': self.scope,
+            'redirect_uri': self.redirect_url,
+            'identity_provider': self.identity_provider
+            }
+        log.debug("Redirecting to login page")
         url = self.login_url + urllib.parse.urlencode(query_string)
         return tk.redirect_to(url)
+
+    def logout(self):
+        return tk.redirect_to(self.login_url)
 
     def identify(self):
         authorization_code = tk.request.args.get('code', None)
         if not authorization_code:
-            return False
-
+            log.debug("No authorization code found")
+            return tk.redirect_to(self.login_url)
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None) or tk.request.endpoint != 'static':
             user = self._identify_user_default(authorization_code)
             if user:
@@ -80,16 +86,17 @@ class SSOPlugin(plugins.SingletonPlugin):
                 set_repoze_user(tk.g.user, response)
                 return response
         
-        return None
-   
+        return None   
 
 
     def _identify_user_default(self, authorization_code):
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None):
             access_token = self._get_access_token(authorization_code)
             if access_token:
+                log.debug("Access token received")
                 user_info = self.get_user_info(access_token)
                 if user_info:
+                    log.debug("User info received")
                     user = self._get_or_create_user(user_info)
                     if user:
                         return user
@@ -124,12 +131,14 @@ class SSOPlugin(plugins.SingletonPlugin):
 
     def _get_or_create_user(self, user_info):
         context = self._prepare_context()
-        try:    
-            
-            user_obj = model.Session.by_email(user_info['email'])
-            user = tk.get_action('user_show')(context, {'id': user_obj.id})
-            log.debug=f"User found {user}"
+        try:     
+            breakpoint()    
+            #user_obj = model.User.get(user_info['username'])
+            user = tk.get_action('user_show')(context, {'id': user_info['custom:userid']})
+            log.debug(f"User found {user.get('name')}")
             return user
+        except Exception as e:
+            log.debug(f"User not found in CKAN for {user_info}")
         except tk.ObjectNotFound:
             log.debug("User not found, attempt to create it")
             user_dict = {
@@ -138,8 +147,7 @@ class SSOPlugin(plugins.SingletonPlugin):
                 'full_name': user_info['name'],
                 'password': secrets.token_urlsafe(16),
                 'plugin_extras': {
-                    'sso': user_info['sub']
-                }
+                    'sso': user_info['sub']                }
             }
             user = tk.get_action('user_create')(context, user_dict) 
             return user
