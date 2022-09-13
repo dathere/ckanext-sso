@@ -37,6 +37,8 @@ class SSOPlugin(plugins.SingletonPlugin):
         self.access_token_url = tk.config.get('ckan.sso.access_token_url')
         self.user_info = tk.config.get('ckan.sso.user_info')
         self.access_token = None
+        self.id_token = None
+        self.refresh_token = None
     
 
     def configure(self, config):
@@ -55,7 +57,20 @@ class SSOPlugin(plugins.SingletonPlugin):
                 raise RuntimeError('Required configuration option {0} not found.'.format(key))
 
     def login(self):
+        return self._ckan_login() if self._check_cookies() else self._cognito_login()
 
+    def _check_cookies(self):
+        self.access_token = tk.request.cookies.get('access_token')
+        self.id_token = tk.request.cookies.get('id_token')
+        self.refresh_token = tk.request.cookies.get('refresh_token')
+        return bool(self.id_token or self.access_token or self.refresh_token)
+
+    def _ckan_login(self):
+        
+        user = self.get_user_info(self.access_token)
+        self._authenticate_user(user)
+    
+    def _cognito_login(self):
         query_string = {'client_id': self.client_id,
                 'response_type': self.response_type,
                 'scope': self.scope,
@@ -64,6 +79,7 @@ class SSOPlugin(plugins.SingletonPlugin):
                 }
         url = self.login_url + urllib.parse.urlencode(query_string)
         return tk.redirect_to(url)
+
 
     def logout(self):
         pass
@@ -76,24 +92,24 @@ class SSOPlugin(plugins.SingletonPlugin):
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None) or tk.request.endpoint != 'static':
             user = self._identify_user_default(authorization_code)
             if user:
-                # log the user in programmatically
-                tk.g.user = user.get('name')
-                tk.g.userobj = user
-                response = tk.redirect_to(self.redirect_url)
-                set_repoze_user(tk.g.user, response)
-                return response
-        
+                self._authenticate_user(user)
         return None
 
+    def _identify_user(self, access_token):
+        user_info = self.get_user_info(access_token)
+        if user_info:
+            user = self._get_or_create_user(user_info)
+            if user:
+                return user
+        
     def _identify_user_default(self, authorization_code):
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None):
             access_token = self._get_access_token(authorization_code)
             if access_token:
-                user_info = self.get_user_info(access_token)
-                if user_info:
-                    user = self._get_or_create_user(user_info)
-                    if user:
-                        return user
+                return self._identify_user(access_token)
+            else:
+                log.error('No access token found')
+                tk.redirect_to(self.redirect_url)
         
 
     def _get_access_token(self, authorization_code):
@@ -143,15 +159,16 @@ class SSOPlugin(plugins.SingletonPlugin):
             return user
 
     def _prepare_context(self):
-        site_user = tk.get_action(u'get_site_user')({
-            u'model': model,
-            u'ignore_auth': True},
-            {}
-        )
-        context = {
-            u'model': model,
-            u'session': model.Session,
-            u'ignore_auth': True,
-            u'user': site_user['name'],
-        }
-        return context
+        site_user = tk.get_action('get_site_user')({'model': model, 'ignore_auth': True}, {})
+        return {'model': model, 'session': model.Session, 'ignore_auth': True, 'user': site_user['name']}
+
+    def _authenticate_user(self, user):
+        # log the user in programmatically
+        tk.g.user = user.get('name')
+        tk.g.userobj = user
+        response = tk.redirect_to(self.redirect_url)
+        response.set_cookie('access_token', self.access_token['access_token'])
+        response.set_cookie('id_token', self.access_token['id_token'])
+        response.set_cookie('refresh_token', self.access_token['refresh_token'])
+        set_repoze_user(tk.g.user, response)
+        return response
