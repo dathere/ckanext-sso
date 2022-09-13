@@ -126,16 +126,18 @@ class SSOPlugin(plugins.SingletonPlugin):
     def _get_or_create_user(self, user_info):
         context = self._prepare_context()
         try:    
-            user = tk.get_action('user_show')(context, {'id': user_info['username']})
+            user = tk.get_action('user_show')(context, {'id': user_info['custom:userid']})
+            log.debug(f"User found {user.get('name')}")
             return user
         except tk.ObjectNotFound:
+            log.debug("User not found, attempt to create it")
             user_dict = {
-                'name': user_info['username'],
+                'name': user_info['username'].split('@')[0],
                 'email': user_info['email'],
+                'full_name': user_info['name'],
                 'password': secrets.token_urlsafe(16),
                 'plugin_extras': {
-                    'sso': user_info['sub']
-                }
+                    'sso': user_info['sub']                }
             }
             user = tk.get_action('user_create')(context, user_dict) 
             return user
