@@ -63,14 +63,21 @@ class SSOPlugin(plugins.SingletonPlugin):
         self.access_token = tk.request.cookies.get('access_token')
         self.id_token = tk.request.cookies.get('id_token')
         self.refresh_token = tk.request.cookies.get('refresh_token')
+        log.debug('Access token: {0}'.format(self.access_token))
+        log.debug('Id token: {0}'.format(self.id_token))
+        log.debug('Refresh token: {0}'.format(self.refresh_token))
+
         return bool(self.id_token or self.access_token or self.refresh_token)
 
     def _ckan_login(self):
-        
+        log.info('User already logged in')
+        log.info('Redirecting to home page')    
         user = self.get_user_info(self.access_token)
         self._authenticate_user(user)
     
     def _cognito_login(self):
+        log.info('User not logged in')
+        log.info('Redirecting to Cognito login page')
         query_string = {'client_id': self.client_id,
                 'response_type': self.response_type,
                 'scope': self.scope,
