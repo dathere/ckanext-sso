@@ -103,7 +103,7 @@ class SSOPlugin(plugins.SingletonPlugin):
         return None
 
     def _identify_user(self, access_token):
-        user_info = self.get_user_info(access_token)
+        user_info = self.get_user_info(access_token['access_token'])
         if user_info:
             user = self._get_or_create_user(user_info)
             if user:
@@ -140,7 +140,7 @@ class SSOPlugin(plugins.SingletonPlugin):
 
 
     def get_user_info(self, access_token):
-        token = access_token['access_token']
+        token = access_token or access_token['access_token']
         headers = {'Authorization': f'Bearer {token}'}
         result = requests.get(self.user_info, headers=headers)
         return result.json()
