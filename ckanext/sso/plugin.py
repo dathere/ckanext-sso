@@ -72,7 +72,8 @@ class SSOPlugin(plugins.SingletonPlugin):
     def _ckan_login(self):
         log.info('User already logged in')
         log.info('Redirecting to home page')    
-        user = self.get_user_info(self.access_token)
+        user_info = self.get_user_info(self.access_token)
+        user = self._identify_user(user_info)
         self._authenticate_user(user)
     
     def _cognito_login(self):
