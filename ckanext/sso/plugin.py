@@ -57,6 +57,7 @@ class SSOPlugin(plugins.SingletonPlugin):
                 raise RuntimeError('Required configuration option {0} not found.'.format(key))
 
     def login(self):
+        log.debug('Request endpoint: {0}'.format(tk.request.endpoint))
         return self._ckan_login() if self._check_cookies() else self._cognito_login()
 
     def _check_cookies(self):
@@ -91,6 +92,12 @@ class SSOPlugin(plugins.SingletonPlugin):
 
     def logout(self):
         pass
+        # response = tk.redirect_to(self.redirect_url)
+        # #self._get_repoze_handler('logout_handler_path')
+        # response.delete_cookie('access_token')
+        # response.delete_cookie('id_token')
+        # response.delete_cookie('refresh_token')
+        # return response
 
     def identify(self):
         authorization_code = tk.request.args.get('code', None)
@@ -104,7 +111,7 @@ class SSOPlugin(plugins.SingletonPlugin):
         return None
 
     def _identify_user(self, access_token):
-        user_info = self.get_user_info(access_token['access_token'])
+        user_info = self.get_user_info(access_token)
         if user_info:
             user = self._get_or_create_user(user_info)
             if user:
@@ -114,10 +121,9 @@ class SSOPlugin(plugins.SingletonPlugin):
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None):
             access_token = self._get_access_token(authorization_code)
             if access_token:
-                return self._identify_user(access_token)
-            else:
-                log.error('No access token found')
-                tk.redirect_to(self.redirect_url)
+                return self._identify_user(access_token.get('access_token'))
+            log.error('No access token found')
+            tk.redirect_to(self.redirect_url)
         
 
     def _get_access_token(self, authorization_code):
@@ -141,7 +147,8 @@ class SSOPlugin(plugins.SingletonPlugin):
 
 
     def get_user_info(self, access_token):
-        token = access_token or access_token['access_token']
+        breakpoint()
+        token = access_token
         headers = {'Authorization': f'Bearer {token}'}
         result = requests.get(self.user_info, headers=headers)
         return result.json()
@@ -149,8 +156,10 @@ class SSOPlugin(plugins.SingletonPlugin):
 
     def _get_or_create_user(self, user_info):
         context = self._prepare_context()
-        try:    
-            user = tk.get_action('user_show')(context, {'id': user_info['custom:userid']})
+        try:
+            breakpoint()
+            user_id = user_info.get('custom:userid',None)  or user_info['username']
+            user = tk.get_action('user_show')(context, {'id':user_id})
             log.debug(f"User found {user.get('name')}")
             return user
         except tk.ObjectNotFound:
