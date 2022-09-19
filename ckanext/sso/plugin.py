@@ -91,13 +91,13 @@ class SSOPlugin(plugins.SingletonPlugin):
 
 
     def logout(self):
-        pass
-        # response = tk.redirect_to(self.redirect_url)
-        # #self._get_repoze_handler('logout_handler_path')
-        # response.delete_cookie('access_token')
-        # response.delete_cookie('id_token')
-        # response.delete_cookie('refresh_token')
-        # return response
+        log.info('Logging out')
+        response = tk.redirect_to(self.redirect_url)
+        #self._get_repoze_handler('logout_handler_path')
+        response.delete_cookie('access_token')
+        response.delete_cookie('id_token')
+        response.delete_cookie('refresh_token')
+        return response
 
     def identify(self):
         authorization_code = tk.request.args.get('code', None)
@@ -147,7 +147,6 @@ class SSOPlugin(plugins.SingletonPlugin):
 
 
     def get_user_info(self, access_token):
-        breakpoint()
         token = access_token
         headers = {'Authorization': f'Bearer {token}'}
         result = requests.get(self.user_info, headers=headers)
@@ -157,9 +156,8 @@ class SSOPlugin(plugins.SingletonPlugin):
     def _get_or_create_user(self, user_info):
         context = self._prepare_context()
         try:
-            breakpoint()
-            user_id = user_info.get('custom:userid',None)  or user_info['username']
-            user = tk.get_action('user_show')(context, {'id':user_id})
+            user_id = user_info.get('custom:userid',None)
+            user = tk.get_action('user_show')(context, {'id': user_id})
             log.debug(f"User found {user.get('name')}")
             return user
         except tk.ObjectNotFound:
