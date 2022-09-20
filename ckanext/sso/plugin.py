@@ -58,7 +58,8 @@ class SSOPlugin(plugins.SingletonPlugin):
 
     def login(self):
         log.debug('Request endpoint: {0}'.format(tk.request.endpoint))
-        return self._ckan_login() if self._check_cookies() else self._cognito_login()
+        if self._check_cookies():
+            return self._ckan_login()
 
     def _check_cookies(self):
         self.access_token = tk.request.cookies.get('access_token')
@@ -70,13 +71,6 @@ class SSOPlugin(plugins.SingletonPlugin):
 
         return bool(self.id_token or self.access_token or self.refresh_token)
 
-    def _ckan_login(self):
-        log.info('User already logged in')
-        log.info('Redirecting to home page')    
-        user_info = self.get_user_info(self.access_token)
-        user = self._identify_user(user_info)
-        self._authenticate_user(user)
-    
     def _cognito_login(self):
         log.info('User not logged in')
         log.info('Redirecting to Cognito login page')
@@ -100,28 +94,33 @@ class SSOPlugin(plugins.SingletonPlugin):
         return response
 
     def identify(self):
-        authorization_code = tk.request.args.get('code', None)
-        if not authorization_code:
-            return False
+        if tk.request.endpoint == 'user.login' and not getattr(tk.g, 'user', None):
+            log.info('Redirect user to Cognito login page')
+            return self._cognito_login()
+        else:
+            authorization_code = tk.request.params.get('code')
+            if authorization_code:
+                log.debug('Authorization code: {0}'.format(authorization_code))
+                return self._identify_user_default(authorization_code)
 
-        if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None) or tk.request.endpoint != 'static':
-            user = self._identify_user_default(authorization_code)
-            if user:
-                self._authenticate_user(user)
-        return None
 
     def _identify_user(self, access_token):
         user_info = self.get_user_info(access_token)
         if user_info:
+            log.debug('User info: {0}'.format(user_info))
             user = self._get_or_create_user(user_info)
             if user:
-                return user
+                return self._authenticate_user(user)
         
     def _identify_user_default(self, authorization_code):
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None):
-            access_token = self._get_access_token(authorization_code)
-            if access_token:
-                return self._identify_user(access_token.get('access_token'))
+            access_tokens = self._get_access_token(authorization_code)
+            if access_tokens:
+                breakpoint()
+                self.access_token = access_tokens['access_token']
+                self.id_token = access_tokens['id_token']
+                self.refresh_token = access_tokens['refresh_token']
+                return self._identify_user(self.access_token)
             log.error('No access token found')
             tk.redirect_to(self.redirect_url)
         
