@@ -97,6 +97,16 @@ class SSOPlugin(plugins.SingletonPlugin):
         if tk.request.endpoint == 'user.login' and not getattr(tk.g, 'user', None):
             log.info('Redirect user to Cognito login page')
             return self._cognito_login()
+        elif tk.request.endpoint == 'user.logout':
+            log.info('User logout')
+            tk.g.user = None
+            response = tk.redirect_to(self.redirect_url)
+            response.delete_cookie('auth_tkt')
+            response.delete_cookie('ckan')
+            response.delete_cookie('access_token')
+            response.delete_cookie('id_token')
+            response.delete_cookie('refresh_token')
+            return response
         else:
             authorization_code = tk.request.params.get('code')
             if authorization_code:
@@ -116,7 +126,7 @@ class SSOPlugin(plugins.SingletonPlugin):
         if not getattr(tk.g, 'userobj', None) or getattr(tk.g, 'user', None):
             access_tokens = self._get_access_token(authorization_code)
             if access_tokens:
-                breakpoint()
+                log.debug('Access tokens: {0}'.format(access_tokens))
                 self.access_token = access_tokens['access_token']
                 self.id_token = access_tokens['id_token']
                 self.refresh_token = access_tokens['refresh_token']
