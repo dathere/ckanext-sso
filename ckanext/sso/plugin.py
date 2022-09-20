@@ -56,10 +56,6 @@ class SSOPlugin(plugins.SingletonPlugin):
             if config.get(key) is None:
                 raise RuntimeError('Required configuration option {0} not found.'.format(key))
 
-    def login(self):
-        log.debug('Request endpoint: {0}'.format(tk.request.endpoint))
-        if self._check_cookies():
-            return self._ckan_login()
 
     def _check_cookies(self):
         self.access_token = tk.request.cookies.get('access_token')
