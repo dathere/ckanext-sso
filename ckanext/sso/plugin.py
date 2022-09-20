@@ -90,7 +90,7 @@ class SSOPlugin(plugins.SingletonPlugin):
         return response
 
     def identify(self):
-        if tk.request.endpoint == 'user.login' and not getattr(tk.g, 'user', None):
+        if tk.request.endpoint == 'user.login' and not getattr(tk.g, 'user', None) and not self._check_cookies():
             log.info('Redirect user to Cognito login page')
             return self._cognito_login()
         elif tk.request.endpoint == 'user.logout':
