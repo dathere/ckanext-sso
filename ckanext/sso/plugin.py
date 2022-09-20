@@ -187,9 +187,8 @@ class SSOPlugin(plugins.SingletonPlugin):
         tk.g.user = user.get('name')
         tk.g.userobj = user
         response = tk.redirect_to(self.redirect_url)
-        if not self._check_cookies():
-            response.set_cookie('access_token', self.access_token)
-            response.set_cookie('id_token', self.id_token)
-            response.set_cookie('refresh_token', self.refresh_token)
+        response.set_cookie('access_token', self.access_token)
+        response.set_cookie('id_token', self.id_token)
+        response.set_cookie('refresh_token', self.refresh_token)
         set_repoze_user(tk.g.user, response)
         return response
