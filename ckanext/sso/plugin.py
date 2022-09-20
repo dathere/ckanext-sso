@@ -16,6 +16,7 @@ import ckan.plugins as plugins
 import ckan.plugins.toolkit as tk
 import ckan.model as model
 from ckan.views.user import set_repoze_user
+from ckan.common import session
 
 import ckanext.sso.helper as helper
 
@@ -58,18 +59,30 @@ class SSOPlugin(plugins.SingletonPlugin):
 
 
     def _check_cookies(self):
-        self.access_token = tk.request.cookies.get('access_token')
-        self.id_token = tk.request.cookies.get('id_token')
-        self.refresh_token = tk.request.cookies.get('refresh_token')
         log.debug('Access token: {0}'.format(self.access_token))
         log.debug('Id token: {0}'.format(self.id_token))
         log.debug('Refresh token: {0}'.format(self.refresh_token))
 
         return bool(self.id_token or self.access_token or self.refresh_token)
 
+    def _set_cookies(self):
+        self.access_token = tk.request.cookies.get('access_token')
+        self.id_token = tk.request.cookies.get('id_token')
+        self.refresh_token = tk.request.cookies.get('refresh_token')
+
+    def _remove_cookies(self, response):
+        response.delete_cookie('auth_tkt', path='/', domain=tk.config.get('ckan.site_url'))
+        response.delete_cookie('ckan', path='/', domain=tk.config.get('ckan.site_url'))
+        response.delete_cookie('access_token', path='/', domain=tk.config.get('ckan.site_url'))
+        response.delete_cookie('id_token', path='/', domain=tk.config.get('ckan.site_url'))
+        response.delete_cookie('refresh_token', path='/', domain=tk.config.get('ckan.site_url'))
+        return response
+
     def _cognito_login(self):
         log.info('User not logged in')
         log.info('Redirecting to Cognito login page')
+        if self._check_cookies():
+            return self.identify()
         query_string = {'client_id': self.client_id,
                 'response_type': self.response_type,
                 'scope': self.scope,
@@ -80,28 +93,17 @@ class SSOPlugin(plugins.SingletonPlugin):
         return tk.redirect_to(url)
 
 
-    def logout(self):
-        log.info('Logging out')
-        response = tk.redirect_to(self.redirect_url)
-        #self._get_repoze_handler('logout_handler_path')
-        response.delete_cookie('access_token')
-        response.delete_cookie('id_token')
-        response.delete_cookie('refresh_token')
-        return response
-
     def identify(self):
         if tk.request.endpoint == 'user.login' and not getattr(tk.g, 'user', None):
             log.info('Redirect user to Cognito login page')
+            self._set_cookies()
             return self._cognito_login()
         elif tk.request.endpoint == 'user.logout':
             log.info('User logout')
             tk.g.user = None
             response = tk.redirect_to(self.redirect_url)
-            response.delete_cookie('auth_tkt')
-            response.delete_cookie('ckan')
-            response.delete_cookie('access_token')
-            response.delete_cookie('id_token')
-            response.delete_cookie('refresh_token')
+            response = self._remove_cookies(response)
+            session.delete()
             return response
         else:
             authorization_code = tk.request.params.get('code')
