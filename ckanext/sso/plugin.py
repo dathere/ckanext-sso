@@ -40,6 +40,7 @@ class SSOPlugin(plugins.SingletonPlugin):
         self.access_token = None
         self.id_token = None
         self.refresh_token = None
+        self.came_from = None
     
 
     def configure(self, config):
@@ -94,6 +95,8 @@ class SSOPlugin(plugins.SingletonPlugin):
 
 
     def identify(self):
+        if tk.request.endpoint == 'dataset.read' and not getattr(tk.g, 'userobj', None):
+            self.came_from = tk.request.url
         if tk.request.endpoint == 'user.login' and not getattr(tk.g, 'user', None):
             log.info('Redirect user to Cognito login page')
             self._set_cookies()
@@ -163,7 +166,7 @@ class SSOPlugin(plugins.SingletonPlugin):
     def _get_or_create_user(self, user_info):
         context = self._prepare_context()
         try:
-            user_id = user_info.get('custom:userid',None)
+            user_id = user_info.get('custom:userid', None)
             user = tk.get_action('user_show')(context, {'id': user_id})
             log.debug(f"User found {user.get('name')}")
             return user
@@ -188,7 +191,10 @@ class SSOPlugin(plugins.SingletonPlugin):
         # log the user in programmatically
         tk.g.user = user.get('name')
         tk.g.userobj = user
-        response = tk.redirect_to(self.redirect_url)
+        redirect_to = self.redirect_url
+        if self.came_from:
+            redirect_to = self.came_from
+        response = tk.redirect_to(redirect_to)
         if not self._check_cookies():
             response.set_cookie('access_token', self.access_token)
             response.set_cookie('id_token', self.id_token)
