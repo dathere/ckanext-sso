@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
+import uuid
 
 import logging
-from os import access
-from wsgiref import headers
+
 import requests
 import urllib.parse
 
@@ -132,7 +132,6 @@ class SSOPlugin(plugins.SingletonPlugin):
     def _get_or_create_user(self, user_info):
         context = self._prepare_context()
         try:     
-            breakpoint()    
             #user_obj = model.User.get(user_info['username'])
             user = tk.get_action('user_show')(context, {'id': user_info['custom:userid']})
             log.debug(f"User found {user.get('name')}")
@@ -141,13 +140,17 @@ class SSOPlugin(plugins.SingletonPlugin):
             log.debug(f"User not found in CKAN for {user_info}")
         except tk.ObjectNotFound:
             log.debug("User not found, attempt to create it")
+            username = user_info['username'].split('@')[0]
+            hashed_username = _hash_username(username)
             user_dict = {
                 'name': user_info['username'].split('@')[0],
                 'email': user_info['email'],
                 'full_name': user_info['name'],
                 'password': secrets.token_urlsafe(16),
                 'plugin_extras': {
-                    'sso': user_info['sub']                }
+                    'sso': user_info['sub'],                
+                    hashed_username: username # this is a hack to store the username in the plugin_extras mapepd to hsahed_username
+                    }
             }
             user = tk.get_action('user_create')(context, user_dict) 
             return user
@@ -165,3 +168,6 @@ class SSOPlugin(plugins.SingletonPlugin):
             u'user': site_user['name'],
         }
         return context
+
+def _hash_username(self, username):
+    return uuid.uuid5(uuid.NAMESPACE_DNS, username)
