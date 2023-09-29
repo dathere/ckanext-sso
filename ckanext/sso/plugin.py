@@ -140,10 +140,11 @@ class SSOPlugin(plugins.SingletonPlugin):
             log.debug(f"User not found in CKAN for {user_info}")
         except tk.ObjectNotFound:
             log.debug("User not found, attempt to create it")
+          
             username = user_info['username'].split('@')[0]
             hashed_username = _hash_username(username)
             user_dict = {
-                'name': user_info['username'].split('@')[0],
+                'name': hashed_username,
                 'email': user_info['email'],
                 'full_name': user_info['name'],
                 'password': secrets.token_urlsafe(16),
@@ -169,5 +170,5 @@ class SSOPlugin(plugins.SingletonPlugin):
         }
         return context
 
-def _hash_username(self, username):
+def _hash_username(username):
     return uuid.uuid5(uuid.NAMESPACE_DNS, username)
