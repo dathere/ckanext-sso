@@ -1,0 +1,6 @@
+{% ckan_extends %}
+{% block login_button %}
+ <a class="gbtn btn btn-default" href="{{ h.url_for('sso.sso') }}">{{ _('Sign in with SSO') }}</a>
+ <button class="btn btn-primary" type="submit">{{ _('Login') }}</button>
+ 
+{% endblock %}

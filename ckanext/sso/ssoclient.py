@@ -20,7 +20,7 @@ class SSOClient(object):
 
     def get_authorize_url(self):
         log.debug('get_authorize_url')
-        oauth = OAuth2Session(self.client_id, redirect_url=self.redirect_url,
+        oauth = OAuth2Session(self.client_id, redirect_uri=self.redirect_url,
                               scope=self.scope)
         authorization_url, state = oauth.authorization_url(self.authorize_url)
         return authorization_url

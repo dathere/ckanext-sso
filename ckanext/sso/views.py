@@ -10,7 +10,7 @@ from ckan.plugins import toolkit as tk
 from ckan.views.user import set_repoze_user, RequestResetView
 
 
-from ckanext.sso.ssoclient import SSSOClient
+from ckanext.sso.ssoclient import SSOClient
 import ckanext.sso.helper as helpers
 
 g = tk.g
@@ -29,11 +29,11 @@ scope = tk.config.get('ckan.sso.scope')
 access_token_url = tk.config.get('ckan.sso.access_token_url')
 user_info = tk.config.get('ckan.sso.user_info')
 
-sso_client = SSSOClient(client_id=client_id, client_secret=client_secret,
-                        authorization_endpoint=authorization_endpoint,
-                        token_url=access_token_url,
-                        redirect_url=redirect_url,
-                        scope=scope)
+sso_client = SSOClient(client_id=client_id, client_secret=client_secret,
+                       authorize_url=authorization_endpoint,
+                       token_url=access_token_url,
+                       redirect_url=redirect_url,
+                       scope=scope)
 
 
 def _log_user_into_ckan(resp):
@@ -62,7 +62,7 @@ def sso():
     log.info("SSO Login")
     auth_url = None
     try:
-        auth_url = sso_client.get_auth_url(redirect_url=redirect_url)
+        auth_url = sso_client.get_authorize_url()
     except Exception as e:
         log.error("Error getting auth url: {}".format(e))
         return tk.abort(500, "Error getting auth url: {}".format(e))
