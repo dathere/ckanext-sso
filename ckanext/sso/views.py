@@ -44,7 +44,6 @@ def _log_user_into_ckan(resp):
     with the internal id plus a serial autoincrement (currently static).
     CKAN <= 2.9.5 identifies the user only using the internal id.
     """
-    breakpoint()
     if tk.check_ckan_version(min_version="2.10"):
         from ckan.common import login_user
         login_user(g.user_obj)
@@ -72,21 +71,19 @@ def sso():
 
 
 def dashboard():
-    breakpoint()
     data = tk.request.args
     token = sso_client.get_token(data['code'])
     userinfo = sso_client.get_user_info(token)
     log.info("SSO Login: {}".format(userinfo))
-    breakpoint()
     if userinfo:
         user_dict = {
             'name': helpers.ensure_unique_username_from_email(
-                userinfo['preferred_username']),
+                userinfo['email']),
             'email': userinfo['email'],
             'password': helpers.generate_password(),
             'fullname': userinfo['name'],
             'plugin_extras': {
-                'idp': 'auth0'
+                'idp': userinfo['sub']
             }
         }
         context = {"model": model, "session": model.Session}

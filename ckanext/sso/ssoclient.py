@@ -36,7 +36,6 @@ class SSOClient(object):
 
     def get_user_info(self, token):
         log.debug('get_user_info')
-        breakpoint()
         oauth = OAuth2Session(self.client_id, token=token)
         user_info = oauth.get(tk.config.get('ckan.sso.user_info'))
         return user_info.json()
