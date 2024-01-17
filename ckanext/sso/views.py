@@ -27,12 +27,13 @@ client_secret = tk.config.get('ckan.sso.client_secret')
 response_type = tk.config.get('ckan.sso.response_type')
 scope = tk.config.get('ckan.sso.scope')
 access_token_url = tk.config.get('ckan.sso.access_token_url')
-user_info = tk.config.get('ckan.sso.user_info')
+user_info_url = tk.config.get('ckan.sso.user_info')
 
 sso_client = SSOClient(client_id=client_id, client_secret=client_secret,
                        authorize_url=authorization_endpoint,
                        token_url=access_token_url,
                        redirect_url=redirect_url,
+                       user_info_url=user_info_url,
                        scope=scope)
 
 
@@ -43,6 +44,7 @@ def _log_user_into_ckan(resp):
     with the internal id plus a serial autoincrement (currently static).
     CKAN <= 2.9.5 identifies the user only using the internal id.
     """
+    breakpoint()
     if tk.check_ckan_version(min_version="2.10"):
         from ckan.common import login_user
         login_user(g.user_obj)
@@ -69,11 +71,13 @@ def sso():
     return tk.redirect_to(auth_url)
 
 
-def sso_login():
+def dashboard():
+    breakpoint()
     data = tk.request.args
-    token = sso_client.get_token(data['code'], redirect_url)
+    token = sso_client.get_token(data['code'])
     userinfo = sso_client.get_user_info(token)
     log.info("SSO Login: {}".format(userinfo))
+    breakpoint()
     if userinfo:
         user_dict = {
             'name': helpers.ensure_unique_username_from_email(
@@ -82,7 +86,7 @@ def sso_login():
             'password': helpers.generate_password(),
             'fullname': userinfo['name'],
             'plugin_extras': {
-                'idp': 'google'
+                'idp': 'auth0'
             }
         }
         context = {"model": model, "session": model.Session}
@@ -121,7 +125,7 @@ def reset_password():
 
 
 blueprint.add_url_rule('/sso', view_func=sso)
-blueprint.add_url_rule('/sso_login', view_func=sso_login)
+blueprint.add_url_rule('/dashboard', view_func=dashboard)
 blueprint.add_url_rule('/reset_password', view_func=reset_password,
                        methods=['POST'])
 
