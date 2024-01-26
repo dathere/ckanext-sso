@@ -65,3 +65,8 @@ def _create_user(userinfo):
     context = {u'ignore_auth': True}
     created_user_dict = tk.get_action(u'user_create')(context, userinfo)
     return _get_user_by_email(created_user_dict['email'])
+
+
+def check_default_login():
+    '''Check if default login is enabled.'''
+    return tk.asbool(tk.config.get('ckanext.sso.ckan_login', False))

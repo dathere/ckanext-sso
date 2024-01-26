@@ -32,15 +32,16 @@ To install the extension:
 ckan.plugins = sso {OTHER PLUGINS}
 
 ## ckanext-sso
-ckan.sso.authorization_endpoint = [authorization_endpoint]
-ckan.sso.login_url = [login_url]
-ckan.sso.client_id = [client_id]
-ckan.sso.redirect_url = [https://myckansite.com/dashboard]
-ckan.sso.client_secret = [client_secret]
-ckan.sso.response_type = [code]
-ckan.sso.scope = [openid profile email]
-ckan.sso.access_token_url = [access_token_url]
-ckan.sso.user_info = [user_info_url]
+ckanext.sso.authorization_endpoint = [authorization_endpoint]
+ckanext.sso.login_url = [login_url]
+ckanext.sso.client_id = [client_id]
+ckanext.sso.redirect_url = [https://myckansite.com/dashboard]
+ckanext.sso.client_secret = [client_secret]
+ckanext.sso.response_type = [code]
+ckanext.sso.scope = [openid profile email]
+ckanext.sso.access_token_url = [access_token_url]
+ckanext.sso.user_info = [user_info_url]
+ckanext.sso.ckan_login = [True|False]
 ```
 
 ## Usage
