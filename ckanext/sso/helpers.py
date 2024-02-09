@@ -69,4 +69,4 @@ def _create_user(userinfo):
 
 def check_default_login():
     '''Check if default login is enabled.'''
-    return tk.asbool(tk.config.get('ckanext.sso.ckan_login', False))
+    return tk.asbool(tk.config.get('ckanext.sso.disable_ckan_login', False))

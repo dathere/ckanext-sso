@@ -41,7 +41,7 @@ ckanext.sso.response_type = [code]
 ckanext.sso.scope = [openid profile email]
 ckanext.sso.access_token_url = [access_token_url]
 ckanext.sso.user_info = [user_info_url]
-ckanext.sso.ckan_login = [True|False]
+ckanext.sso.disable_ckan_login = [True|False]
 ```
 
 ## Usage
