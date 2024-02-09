@@ -7,6 +7,7 @@ from flask import Blueprint
 import ckan.lib.helpers as h
 import ckan.model as model
 from ckan.plugins import toolkit as tk
+
 from ckan.views.user import set_repoze_user, RequestResetView
 
 
@@ -35,6 +36,13 @@ sso_client = SSOClient(client_id=client_id, client_secret=client_secret,
                        redirect_url=redirect_url,
                        user_info_url=user_info_url,
                        scope=scope)
+
+
+@blueprint.before_app_request
+def before_app_request():
+    bp, action = tk.get_endpoint()
+    if bp == 'user' and action == 'login' and helpers.check_default_login():
+        return tk.redirect_to(h.url_for('sso.sso'))
 
 
 def _log_user_into_ckan(resp):
