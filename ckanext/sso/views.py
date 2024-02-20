@@ -7,11 +7,12 @@ from flask import Blueprint
 import ckan.lib.helpers as h
 import ckan.model as model
 from ckan.plugins import toolkit as tk
+
 from ckan.views.user import set_repoze_user, RequestResetView
 
 
 from ckanext.sso.ssoclient import SSOClient
-import ckanext.sso.helper as helpers
+import ckanext.sso.helpers as helpers
 
 g = tk.g
 
@@ -19,15 +20,15 @@ log = logging.getLogger(__name__)
 
 blueprint = Blueprint('sso', __name__)
 
-authorization_endpoint = tk.config.get('ckan.sso.authorization_endpoint')
-login_url = tk.config.get('ckan.sso.login_url')
-client_id = tk.config.get('ckan.sso.client_id')
-redirect_url = tk.config.get('ckan.sso.redirect_url')
-client_secret = tk.config.get('ckan.sso.client_secret')
-response_type = tk.config.get('ckan.sso.response_type')
-scope = tk.config.get('ckan.sso.scope')
-access_token_url = tk.config.get('ckan.sso.access_token_url')
-user_info_url = tk.config.get('ckan.sso.user_info')
+authorization_endpoint = tk.config.get('ckanext.sso.authorization_endpoint')
+login_url = tk.config.get('ckanext.sso.login_url')
+client_id = tk.config.get('ckanext.sso.client_id')
+redirect_url = tk.config.get('ckanext.sso.redirect_url')
+client_secret = tk.config.get('ckanext.sso.client_secret')
+response_type = tk.config.get('ckanext.sso.response_type')
+scope = tk.config.get('ckanext.sso.scope')
+access_token_url = tk.config.get('ckanext.sso.access_token_url')
+user_info_url = tk.config.get('ckanext.sso.user_info')
 
 sso_client = SSOClient(client_id=client_id, client_secret=client_secret,
                        authorize_url=authorization_endpoint,
@@ -35,6 +36,13 @@ sso_client = SSOClient(client_id=client_id, client_secret=client_secret,
                        redirect_url=redirect_url,
                        user_info_url=user_info_url,
                        scope=scope)
+
+
+@blueprint.before_app_request
+def before_app_request():
+    bp, action = tk.get_endpoint()
+    if bp == 'user' and action == 'login' and helpers.check_default_login():
+        return tk.redirect_to(h.url_for('sso.sso'))
 
 
 def _log_user_into_ckan(resp):
@@ -73,7 +81,7 @@ def sso():
 def dashboard():
     data = tk.request.args
     token = sso_client.get_token(data['code'])
-    userinfo = sso_client.get_user_info(token)
+    userinfo = sso_client.get_user_info(token, user_info_url)
     log.info("SSO Login: {}".format(userinfo))
     if userinfo:
         user_dict = {
