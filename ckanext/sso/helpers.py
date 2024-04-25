@@ -17,10 +17,9 @@ def generate_password():
     return ''.join(secrets.choice(alphabet) for _ in range(8))
 
 
-def ensure_unique_username_from_email(email):
+def ensure_unique_username(given_name):
     '''Ensure that the username is unique.'''
-    localpart = email.split('@')[0]
-    cleaned_localpart = re.sub(r'[^\w]', '-', localpart).lower()
+    cleaned_localpart = re.sub(r'[^\w]', '-', given_name).lower()
 
     if not model.User.get(cleaned_localpart):
         return cleaned_localpart
