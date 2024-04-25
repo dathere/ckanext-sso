@@ -85,8 +85,8 @@ def dashboard():
     log.info("SSO Login: {}".format(userinfo))
     if userinfo:
         user_dict = {
-            'name': helpers.ensure_unique_username_from_email(
-                userinfo['email']),
+            'name': helpers.ensure_unique_username(
+                userinfo['given_name']),
             'email': userinfo['email'],
             'password': helpers.generate_password(),
             'fullname': userinfo['name'],
