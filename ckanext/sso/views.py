@@ -85,7 +85,7 @@ def sso_register():
     log.info("SSO Register")
     auth_url = None
     try:
-        auth_url = sso_client.get_authorize_url(screen_hint="signup")
+        auth_url = sso_client.get_authorize_url()
     except Exception as e:
         log.error("Error getting auth url: {}".format(e))
         return tk.abort(500, "Error getting auth url: {}".format(e))
