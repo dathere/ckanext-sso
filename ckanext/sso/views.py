@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 
 blueprint = Blueprint('sso', __name__)
 
+
 authorization_endpoint = tk.config.get('ckanext.sso.authorization_endpoint')
 login_url = tk.config.get('ckanext.sso.login_url')
 client_id = tk.config.get('ckanext.sso.client_id')
@@ -41,8 +42,11 @@ sso_client = SSOClient(client_id=client_id, client_secret=client_secret,
 @blueprint.before_app_request
 def before_app_request():
     bp, action = tk.get_endpoint()
-    if bp == 'user' and action == 'login' and helpers.check_default_login():
+    if  bp == 'user' and action == 'login' and helpers.check_default_login():
         return tk.redirect_to(h.url_for('sso.sso'))
+    if bp == 'user' and action == 'register':
+        return tk.redirect_to(h.url_for('sso.sso_register'))
+    
 
 
 def _log_user_into_ckan(resp):
@@ -69,6 +73,16 @@ def _log_user_into_ckan(resp):
 
 def sso():
     log.info("SSO Login")
+    auth_url = None
+    try:
+        auth_url = sso_client.get_authorize_url()
+    except Exception as e:
+        log.error("Error getting auth url: {}".format(e))
+        return tk.abort(500, "Error getting auth url: {}".format(e))
+    return tk.redirect_to(auth_url)
+
+def sso_register():
+    log.info("SSO Register")
     auth_url = None
     try:
         auth_url = sso_client.get_authorize_url()
@@ -130,6 +144,7 @@ def reset_password():
 
 
 blueprint.add_url_rule('/sso', view_func=sso)
+blueprint.add_url_rule('/sso_register', view_func=sso_register)
 blueprint.add_url_rule('/dashboard', view_func=dashboard)
 blueprint.add_url_rule('/reset_password', view_func=reset_password,
                        methods=['POST'])

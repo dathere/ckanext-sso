@@ -19,11 +19,11 @@ class SSOClient(object):
         self.user_info_url = user_info_url
         self.scope = scope
 
-    def get_authorize_url(self):
+    def get_authorize_url(self, **kwargs):
         log.debug('get_authorize_url')
         oauth = OAuth2Session(self.client_id, redirect_uri=self.redirect_url,
-                              scope=self.scope)
-        authorization_url, state = oauth.authorization_url(self.authorize_url)
+                            scope=self.scope)
+        authorization_url, state = oauth.authorization_url(self.authorize_url, **kwargs)
         return authorization_url
 
     def get_token(self, code):
