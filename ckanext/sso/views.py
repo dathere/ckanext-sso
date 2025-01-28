@@ -98,9 +98,13 @@ def dashboard():
     userinfo = sso_client.get_user_info(token, user_info_url)
     log.info("SSO Login: {}".format(userinfo))
     if userinfo:
+        username = userinfo.get('given_name') or userinfo.get('nickname')
+        if not username:
+            log.error("No given_name or nickname provided by SSO")
+            return tk.abort(400, "Missing required user information")
+            
         user_dict = {
-            'name': helpers.ensure_unique_username(
-                userinfo['given_name']),
+            'name': helpers.ensure_unique_username(username),
             'email': userinfo['email'],
             'password': helpers.generate_password(),
             'fullname': userinfo['name'],
