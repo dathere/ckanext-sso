@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 class SSOClient(object):
     def __init__(self, client_id, client_secret, authorize_url, token_url,
-                 redirect_url, user_info_url, scope):
+                 redirect_url, user_info_url, scope, logout_url=None):
         self.client_id = client_id
         self.client_secret = client_secret
         self.authorize_url = authorize_url
@@ -18,6 +18,7 @@ class SSOClient(object):
         self.redirect_url = redirect_url
         self.user_info_url = user_info_url
         self.scope = scope
+        self.logout_url = logout_url
 
     def get_authorize_url(self, **kwargs):
         log.debug('get_authorize_url')
@@ -25,6 +26,15 @@ class SSOClient(object):
                             scope=self.scope)
         authorization_url, state = oauth.authorization_url(self.authorize_url, **kwargs)
         return authorization_url
+    
+
+    def get_logout_url(self, return_to=None):
+        """Get Auth0 logout URL"""
+        params = {'client_id': self.client_id}
+        if return_to:
+            params['returnTo'] = return_to
+        from urllib.parse import urlencode
+        return f"{self.logout_url}?{urlencode(params)}"
 
     def get_token(self, code):
         log.debug('get_token')
@@ -39,3 +49,4 @@ class SSOClient(object):
         oauth = OAuth2Session(self.client_id, token=token)
         user_info = oauth.get(user_info_url)
         return user_info.json()
+    
