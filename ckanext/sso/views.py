@@ -105,7 +105,6 @@ def dashboard():
     userinfo = sso_client.get_user_info(token, user_info_url)
     log.info("SSO Login: {}".format(userinfo))
     if userinfo:
-        # Get username from given_name or nickname
         username = userinfo.get('given_name') or userinfo.get('nickname')
         if not username:
             log.error("No given_name or nickname provided by SSO")
@@ -120,14 +119,12 @@ def dashboard():
                 'idp': userinfo['sub']
             }
         }
-        
 
         picture_url = (userinfo.get('picture') or 
                       userinfo.get('avatar') or 
                       userinfo.get('image'))
         if picture_url:
             user_dict['image_url'] = picture_url
-
         context = {"model": model, "session": model.Session}
         g.user_obj = helpers.process_user(user_dict)
         g.user = g.user_obj.name
