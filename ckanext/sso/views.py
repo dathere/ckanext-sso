@@ -7,8 +7,11 @@ from flask import Blueprint
 import ckan.lib.helpers as h
 import ckan.model as model
 from ckan.plugins import toolkit as tk
-
+import ckan.plugins as plugins
 from ckan.views.user import set_repoze_user, RequestResetView
+from ckan.common import (
+    _, config, g, request, current_user, logout_user, session, login_user
+)
 
 
 from ckanext.sso.ssoclient import SSOClient
@@ -30,24 +33,29 @@ response_type = tk.config.get('ckanext.sso.response_type')
 scope = tk.config.get('ckanext.sso.scope')
 access_token_url = tk.config.get('ckanext.sso.access_token_url')
 user_info_url = tk.config.get('ckanext.sso.user_info')
+logout_url = tk.config.get('ckanext.sso.logout_url') 
+logout_redirect_url = tk.config.get('ckanext.sso.logout_redirect_url')
 
-sso_client = SSOClient(client_id=client_id, client_secret=client_secret,
+sso_client = SSOClient(client_id=client_id, 
+                       client_secret=client_secret,
                        authorize_url=authorization_endpoint,
                        token_url=access_token_url,
                        redirect_url=redirect_url,
                        user_info_url=user_info_url,
-                       scope=scope)
+                       scope=scope,
+                       logout_url=logout_url)
 
 
 @blueprint.before_app_request
 def before_app_request():
     bp, action = tk.get_endpoint()
-    if  bp == 'user' and action == 'login' and helpers.check_default_login():
+    if bp == 'user' and action == 'login' and helpers.check_default_login():
         return tk.redirect_to(h.url_for('sso.sso'))
     if bp == 'user' and action == 'register':
         return tk.redirect_to(h.url_for('sso.sso_register'))
+    if bp == 'user' and action == 'logout':
+        return tk.redirect_to(h.url_for('sso.sso_logout'))
     
-
 
 def _log_user_into_ckan(resp):
     """ Log the user into different CKAN versions.
@@ -57,7 +65,6 @@ def _log_user_into_ckan(resp):
     CKAN <= 2.9.5 identifies the user only using the internal id.
     """
     if tk.check_ckan_version(min_version="2.10"):
-        from ckan.common import login_user
         login_user(g.user_obj)
         return
 
@@ -113,7 +120,14 @@ def dashboard():
                 'idp': userinfo['sub']
             }
         }
-        # Rest of the function remains the same
+        
+
+        picture_url = (userinfo.get('picture') or 
+                      userinfo.get('avatar') or 
+                      userinfo.get('image'))
+        if picture_url:
+            user_dict['image_url'] = picture_url
+
         context = {"model": model, "session": model.Session}
         g.user_obj = helpers.process_user(user_dict)
         g.user = g.user_obj.name
@@ -127,6 +141,30 @@ def dashboard():
         return response
     else:
         return tk.redirect_to(tk.url_for('user.login'))
+    
+
+def sso_logout():
+    for item in plugins.PluginImplementations(plugins.IAuthenticator):
+        response = item.logout()
+        if response:
+            return response
+    user = current_user.name
+    if not user:
+        return h.redirect_to('user.login')
+
+    came_from = request.args.get('came_from', '')
+    logout_user()
+
+    field_name = config.get("WTF_CSRF_FIELD_NAME")
+    if session.get(field_name):
+        session.pop(field_name)
+
+    if h.url_is_local(came_from):
+        return h.redirect_to(str(came_from))
+    
+    logout_url = sso_client.get_logout_url(return_to=logout_redirect_url)
+    return tk.redirect_to(logout_url)
+
 
 
 def reset_password():
@@ -152,9 +190,11 @@ def reset_password():
 blueprint.add_url_rule('/sso', view_func=sso)
 blueprint.add_url_rule('/sso_register', view_func=sso_register)
 blueprint.add_url_rule('/dashboard', view_func=dashboard)
+blueprint.add_url_rule('/sso_logout', view_func=sso_logout)
 blueprint.add_url_rule('/reset_password', view_func=reset_password,
                        methods=['POST'])
 
 
 def get_blueprint():
     return blueprint
+
