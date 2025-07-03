@@ -2,27 +2,24 @@
 
 import logging
 
-from flask import Blueprint
-
 import ckan.lib.helpers as h
 import ckan.model as model
 from ckan.plugins import toolkit as tk
+
 import ckan.plugins as plugins
 from ckan.views.user import set_repoze_user, RequestResetView
 from ckan.common import (
     _, config, g, request, current_user, logout_user, session, login_user
 )
 
-
 from ckanext.sso.ssoclient import SSOClient
-import ckanext.sso.helpers as helpers
+from ckanext.sso.ldap_client import LDAPClient
 
 g = tk.g
 
 log = logging.getLogger(__name__)
 
 blueprint = Blueprint('sso', __name__)
-
 
 authorization_endpoint = tk.config.get('ckanext.sso.authorization_endpoint')
 login_url = tk.config.get('ckanext.sso.login_url')
@@ -45,7 +42,6 @@ sso_client = SSOClient(client_id=client_id,
                        scope=scope,
                        logout_url=logout_url)
 
-
 @blueprint.before_app_request
 def before_app_request():
     bp, action = tk.get_endpoint()
@@ -55,10 +51,9 @@ def before_app_request():
         return tk.redirect_to(h.url_for('sso.sso_register'))
     if bp == 'user' and action == 'logout':
         return tk.redirect_to(h.url_for('sso.sso_logout'))
-    
 
 def _log_user_into_ckan(resp):
-    """ Log the user into different CKAN versions.
+    """Log the user into different CKAN versions.
     CKAN 2.10 introduces flask-login and login_user method.
     CKAN 2.9.6 added a security change and identifies the user
     with the internal id plus a serial autoincrement (currently static).
@@ -74,13 +69,14 @@ def _log_user_into_ckan(resp):
         user_id = tk.g.user
     set_repoze_user(user_id, resp)
 
-    log.info(u'User {0}<{1}> logged in successfully'.format(g.user_obj.name,
-                                                            g.user_obj.email))
-
+    log.info(
+        "User {0}<{1}> logged in successfully".format(g.user_obj.name, g.user_obj.email)
+    )
 
 def sso():
     log.info("SSO Login")
     auth_url = None
+    sso_client = SSOClient()
     try:
         auth_url = sso_client.get_authorize_url()
     except Exception as e:
@@ -100,11 +96,15 @@ def sso_register():
 
 
 def dashboard():
+    
     data = tk.request.args
-    token = sso_client.get_token(data['code'])
-    userinfo = sso_client.get_user_info(token, user_info_url)
-    log.info("SSO Login: {}".format(userinfo))
-    if userinfo:
+    sso_client = SSOClient()
+    default_role = tk.config.get("ckanext.sso.role","member")
+    userinfo=None
+    if data.get('code',None):
+        token = sso_client.get_token(data["code"])
+        userinfo = sso_client.get_user_info(token)
+        log.debug("SSO Login: {}".format(userinfo))
         username = userinfo.get('given_name') or userinfo.get('nickname')
         if not username:
             log.error("No given_name or nickname provided by SSO")
@@ -119,7 +119,21 @@ def dashboard():
                 'idp': userinfo['sub']
             }
         }
-
+        if userinfo:
+          #ldap info
+          ldap_department_num=None
+          if "email" in userinfo.keys():
+              try:
+                  ldap_client = LDAPClient()
+              except Exception as e:
+                  log.debug(f"{e}")
+                  ldap_info=None
+              else:
+                  ldap_info=ldap_client.query_user_by_email(userinfo["email"])
+                  ldap_department=ldap_info.get("department",None)[0]
+                  ldap_department_num=ldap_info.get("departmentNumber",None)[0]
+                  log.debug(f"LDAP department: {ldap_department}-{ldap_department_num}")
+    
         picture_url = (userinfo.get('picture') or 
                       userinfo.get('avatar') or 
                       userinfo.get('image'))
@@ -128,13 +142,64 @@ def dashboard():
         context = {"model": model, "session": model.Session}
         g.user_obj = helpers.process_user(user_dict)
         g.user = g.user_obj.name
-        context['user'] = g.user
-        context['auth_user_obj'] = g.user_obj
+        context["user"] = g.user
+        context["auth_user_obj"] = g.user_obj
+
+        
+        keycloak_groups = userinfo.get('groups', [])
+        user_groups = [group.strip('/') for group in keycloak_groups]
+        # add ldap department
+        if ldap_department_num:
+            user_groups.append(ldap_department_num)
+        
+        ckan_organizations = tk.get_action('organization_list')(context, {})
+        ckan_groups = tk.get_action('group_list')(context, {})
+        
+        log.debug(f"cleaned User Groups: {user_groups}")
+        log.debug(f"ckan Orga: {ckan_organizations}")
+        log.debug(f"ckan groups: {ckan_groups}")
+        
+        admin_context = {
+            'model': model,
+            'session': model.Session,
+            'ignore_auth': True  
+        }
+        
+        for group in user_groups:
+            if group in ckan_organizations:
+                try:
+                    
+                    tk.get_action('organization_member_create')(
+                        admin_context,
+                        {
+                            'id': group,  
+                            'username': g.user,
+                            'role': default_role
+                        }
+                    )
+                    log.info(f"User {g.user} added to org {group}")
+                except Exception as e:
+                    log.error(f"Failed to add user {g.user} to organization {group}: {e}")
+            elif group in ckan_groups:
+                try:
+                    
+                    tk.get_action('group_member_create')(
+                        admin_context,
+                        {
+                            'id': group,  
+                            'username': g.user,
+                            'role': 'member'
+                        }
+                    )
+                    log.info(f"User {g.user} added to org {group}")
+                except Exception as e:
+                    log.error(f"Failed to add user {g.user} to group {group}: {e}")
 
         response = tk.redirect_to(tk.url_for('user.me', context))
 
         _log_user_into_ckan(response)
         log.info("Logged in success")
+
         return response
     else:
         return tk.redirect_to(tk.url_for('user.login'))
@@ -163,26 +228,22 @@ def sso_logout():
     return tk.redirect_to(logout_url)
 
 
-
 def reset_password():
-    email = tk.request.form.get('user', None)
-    if '@' not in email:
-        log.info(f'User requested reset link for invalid email: {email}')
-        h.flash_error('Invalid email address')
-        return tk.redirect_to(tk.url_for('user.request_reset'))
+    email = tk.request.form.get("user", None)
+    if "@" not in email:
+        log.info(f"User requested reset link for invalid email: {email}")
+        h.flash_error("Invalid email address")
+        return tk.redirect_to(tk.url_for("user.request_reset"))
     user = model.User.by_email(email)
     if not user:
-        log.info(u'User requested reset link for unknown user: {}'
-                 .format(email))
-        return tk.redirect_to(tk.url_for('user.login'))
+        log.info("User requested reset link for unknown user: {}".format(email))
+        return tk.redirect_to(tk.url_for("user.login"))
     user_extras = user[0].plugin_extras
-    if user_extras and user_extras.get('idp', None) == 'google':
-        log.info(u'User requested reset link for google user: {}'
-                 .format(email))
-        h.flash_error('Invalid email address')
-        return tk.redirect_to(tk.url_for('user.login'))
+    if user_extras and user_extras.get("idp", None) == "google":
+        log.info("User requested reset link for google user: {}".format(email))
+        h.flash_error("Invalid email address")
+        return tk.redirect_to(tk.url_for("user.login"))
     return RequestResetView().post()
-
 
 blueprint.add_url_rule('/sso', view_func=sso)
 blueprint.add_url_rule('/sso_register', view_func=sso_register)

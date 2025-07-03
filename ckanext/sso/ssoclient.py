@@ -2,8 +2,8 @@
 
 import logging
 
-from requests_oauthlib import OAuth2Session
 from ckan.plugins import toolkit as tk
+from requests_oauthlib import OAuth2Session
 
 log = logging.getLogger(__name__)
 
@@ -37,16 +37,18 @@ class SSOClient(object):
         return f"{self.logout_url}?{urlencode(params)}"
 
     def get_token(self, code):
-        log.debug('get_token')
-        oauth = OAuth2Session(self.client_id, redirect_uri=self.redirect_url,
-                              scope=self.scope)
-        token = oauth.fetch_token(self.token_url, code=code,
-                                  client_secret=self.client_secret)
+        log.debug("get_token")
+        oauth = OAuth2Session(
+            self.client_id, redirect_uri=self.redirect_url, scope=self.scope
+        )
+        token = oauth.fetch_token(
+            self.token_url, code=code, client_secret=self.client_secret
+        )
         return token
 
-    def get_user_info(self, token, user_info_url):
-        log.debug('get_user_info')
+    def get_user_info(self, token):
+        log.debug("get_user_info")
         oauth = OAuth2Session(self.client_id, token=token)
-        user_info = oauth.get(user_info_url)
+        user_info = oauth.get(self.user_info_url)
         return user_info.json()
     

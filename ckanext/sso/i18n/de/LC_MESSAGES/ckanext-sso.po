@@ -1,0 +1,50 @@
+# German translations for ckanext-sso.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the ckanext-sso
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ckanext-sso 0.0.0\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-05-14 13:14+0000\n"
+"PO-Revision-Date: 2025-05-14 13:16+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: de\n"
+"Language-Team: de <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+#: ckanext/sso/templates/user/snippets/login_form.html:3
+msgid "Login"
+msgstr "Login"
+
+#: ckanext/sso/templates/user/snippets/login_form.html:5
+#: ckanext/sso/templates/user/snippets/new.html:21
+msgid "Sign in with SSO"
+msgstr "Einloggen mit SSO"
+
+#: ckanext/sso/templates/user/snippets/new.html:3
+msgid "Register"
+msgstr "Registrieren"
+
+#: ckanext/sso/templates/user/snippets/new.html:6
+msgid "Registration"
+msgstr "Registrierung"
+
+#: ckanext/sso/templates/user/snippets/new.html:14
+msgid "Register for an Account"
+msgstr "Neues Konto anlegen"
+
+#: ckanext/sso/templates/user/snippets/new.html:36
+msgid "Why Sign Up?"
+msgstr "Warum sich registrieren?"
+
+#: ckanext/sso/templates/user/snippets/new.html:38
+msgid "Create datasets, groups and other exciting things"
+msgstr "Erzeugen von Datensätzen, Gruppen und andere aufregende Dinge"
+

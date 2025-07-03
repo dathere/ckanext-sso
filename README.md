@@ -1,11 +1,16 @@
+[![Tests](https://github.com/Mat-O-Lab/ckanext-sso/actions/workflows/test.yml/badge.svg)](https://github.com/Mat-O-Lab/ckanext-sso/actions/workflows/test.yml)
+
 # ckanext-sso
 
 ## Introduction
 **ckanext-sso** is an extension for CKAN, a powerful data management system that makes data accessible and usable. This extension provides Single Sign-On (SSO) capabilities, allowing users to log in to CKAN using various SSO providers.
 
-## Tested on
-- CKAN 2.9
-- CKAN 2.10
+## Compatibility with core CKAN versions
+| CKAN version    | Compatible?   |
+| --------------- | ------------- |
+| 2.9 and earlier  | not tested    |
+| 2.10             | yes    |
+| 2.11            | yes    |
 
 ## Features
 
@@ -17,23 +22,29 @@
 
 To install the extension:
 
-- activate your virtual environment ie `. /usr/lib/ckan/default/bin/activate`
+1. Activate your CKAN virtual environment, for example:
+```bash
+. /usr/lib/ckan/default/bin/activate
+```
+2. Use pip to install package
+```bash
+pip install ckanext-sso
+```
+3. Add `sso` to the `ckan.plugins` setting in your CKAN
+   config file (by default the config file is located at
+   `/etc/ckan/default/ckan.ini`).
 
-- Install the requirements `pip install -r requirements.txt`
-
-- Install the package `python setup.py install`
-
-- Add `sso` settings in CKAN config file
+4. Restart CKAN. For example, if you've deployed CKAN with Apache on Ubuntu:
+```bash
+sudo service apache2 reload
+```
 
 ## Configuration
 
-``` ini
-
+```bash
 ckan.plugins = sso {OTHER PLUGINS}
-
 ## ckanext-sso
 ckanext.sso.authorization_endpoint = [authorization_endpoint]
-ckanext.sso.login_url = [login_url]
 ckanext.sso.client_id = [client_id]
 ckanext.sso.redirect_url = [https://myckansite.com/dashboard]
 ckanext.sso.client_secret = [client_secret]
@@ -56,7 +67,5 @@ Contributions are welcome! Please read our [contributing guide](CONTRIBUTING.md)
 
 This project is licensed under the terms of the [MIT License](LICENSE).
 
-## Contact
-
-If you have any questions, please feel free to reach out to us at [
-datHere Support](mailto:<support@dathere.com>).
+# Acknowledgments
+The authors would like to thank the developers of the original project https://github.com/dathere/ckanext-sso.
