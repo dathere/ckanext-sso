@@ -91,18 +91,8 @@ def dashboard():
         log.debug(f"User Info: {user_dict}")
         #ldap info
         ldap_department_num=None
-        if "email" in userinfo.keys():
-            try:
-                ldap_client = LDAPClient()
-            except Exception as e:
-                log.debug(f"{e}")
-                ldap_info=None
-            else:
-                ldap_info=ldap_client.query_user_by_email(userinfo["email"])
-                ldap_department=ldap_info.get("department",None)[0]
-                ldap_department_num=ldap_info.get("departmentNumber",None)[0]
-                log.debug(f"LDAP department: {ldap_department}-{ldap_department_num}")
-        
+        ldap_department=None
+
         context = {"model": model, "session": model.Session}
         g.user_obj = helpers.process_user(user_dict)
         g.user = g.user_obj.name
