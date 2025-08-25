@@ -7,11 +7,14 @@ import ckan.model as model
 from ckan.plugins import toolkit as tk
 from ckan.views.user import RequestResetView, set_repoze_user
 from flask import Blueprint
+import ckan.plugins as plugins
 
 import ckanext.sso.helpers as helpers
 from ckanext.sso.ssoclient import SSOClient
 from ckanext.sso.ldap_client import LDAPClient
-
+from ckan.common import (
+    _, config, g, request, current_user, logout_user, session, login_user
+)
 g = tk.g
 
 log = logging.getLogger(__name__)
@@ -24,7 +27,8 @@ def before_app_request():
     bp, action = tk.get_endpoint()
     if bp == "user" and action == "login" and helpers.check_default_login():
         return tk.redirect_to(h.url_for("sso.sso"))
-
+    if bp == "user" and action == "logout":
+        return tk.redirect_to(h.url_for('sso.sso_logout'))
 
 
 
@@ -88,6 +92,12 @@ def dashboard():
             "fullname": userinfo["name"],
             "plugin_extras": {"idp": userinfo["sub"]},
         }
+        picture_url = (userinfo.get('picture') or 
+                      userinfo.get('avatar') or 
+                      userinfo.get('image'))
+        if picture_url:
+            user_dict['image_url'] = picture_url
+
         log.debug(f"User Info: {user_dict}")
         #ldap info
         ldap_department_num=None
@@ -178,10 +188,33 @@ def reset_password():
         return tk.redirect_to(tk.url_for("user.login"))
     return RequestResetView().post()
 
+def sso_logout():
+    for item in plugins.PluginImplementations(plugins.IAuthenticator):
+        response = item.logout()
+        if response:
+            return response
+    user = current_user.name
+    if not user:
+        return h.redirect_to('user.login')
+
+    came_from = request.args.get('came_from', '')
+    logout_user()
+
+    field_name = config.get("WTF_CSRF_FIELD_NAME")
+    if session.get(field_name):
+        session.pop(field_name)
+
+    if h.url_is_local(came_from):
+        return h.redirect_to(str(came_from))
+    
+    logout_url = sso_client.get_logout_url()
+    return tk.redirect_to(logout_url)
+
 
 blueprint.add_url_rule("/sso", view_func=sso)
 blueprint.add_url_rule("/dashboard", view_func=dashboard)
 blueprint.add_url_rule("/reset_password", view_func=reset_password, methods=["POST"])
+blueprint.add_url_rule('/sso_logout', view_func=sso_logout)
 
 
 def get_blueprint():

@@ -18,6 +18,8 @@ class SSOClient(object):
         self.scope = tk.config.get("ckanext.sso.scope")
         self.token_url = tk.config.get("ckanext.sso.access_token_url")
         self.user_info_url = tk.config.get("ckanext.sso.user_info")
+        self.logout_url = tk.config.get('ckanext.sso.logout_url') 
+        self.logout_redirect_url = tk.config.get('ckanext.sso.logout_redirect_url')
 
     def get_authorize_url(self):
         log.debug("get_authorize_url")
@@ -42,3 +44,11 @@ class SSOClient(object):
         oauth = OAuth2Session(self.client_id, token=token)
         user_info = oauth.get(self.user_info_url)
         return user_info.json()
+
+    def get_logout_url(self, return_to=self.logout_redirect_url):
+        """Get Auth0 logout URL"""
+        params = {'client_id': self.client_id}
+        if return_to:
+            params['returnTo'] = return_to
+        from urllib.parse import urlencode
+        return f"{self.logout_url}?{urlencode(params)}"
