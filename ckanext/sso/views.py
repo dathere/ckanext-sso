@@ -8,7 +8,7 @@ import ckan.lib.helpers as h
 import ckan.model as model
 from ckan.plugins import toolkit as tk
 
-from ckan.views.user import set_repoze_user, RequestResetView
+from ckan.views.user import RequestResetView
 
 
 from ckanext.sso.ssoclient import SSOClient
@@ -61,6 +61,8 @@ def _log_user_into_ckan(resp):
         user_id = "{},1".format(g.user_obj.id)
     else:
         user_id = tk.g.user
+    # set_repoze_user was removed in CKAN 2.12; only needed on < 2.10.
+    from ckan.views.user import set_repoze_user
     set_repoze_user(user_id, resp)
 
     log.info(u'User {0}<{1}> logged in successfully'.format(g.user_obj.name,
