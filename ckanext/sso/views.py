@@ -5,7 +5,7 @@ import logging
 import ckan.lib.helpers as h
 import ckan.model as model
 from ckan.plugins import toolkit as tk
-from ckan.views.user import RequestResetView, set_repoze_user
+from ckan.views.user import RequestResetView
 from flask import Blueprint
 
 import ckanext.sso.helpers as helpers
@@ -29,27 +29,14 @@ def before_app_request():
 
 
 def _log_user_into_ckan(resp):
-    """Log the user into different CKAN versions.
-    CKAN 2.10 introduces flask-login and login_user method.
-    CKAN 2.9.6 added a security change and identifies the user
-    with the internal id plus a serial autoincrement (currently static).
-    CKAN <= 2.9.5 identifies the user only using the internal id.
-    """
-    if tk.check_ckan_version(min_version="2.10"):
-        from ckan.common import login_user
+    """Log the user in via flask-login (CKAN >= 2.10)."""
+    from ckan.common import login_user
 
-        login_user(g.user_obj)
-        return
-
-    if tk.check_ckan_version(min_version="2.9.6"):
-        user_id = "{},1".format(g.user_obj.id)
-    else:
-        user_id = tk.g.user
-    set_repoze_user(user_id, resp)
-
+    login_user(g.user_obj)
     log.info(
         "User {0}<{1}> logged in successfully".format(g.user_obj.name, g.user_obj.email)
     )
+
 
 def sso():
     log.info("SSO Login")
