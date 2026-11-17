@@ -5,12 +5,12 @@ import logging
 import ckan.lib.helpers as h
 import ckan.model as model
 from ckan.plugins import toolkit as tk
-from ckan.views.user import RequestResetView, set_repoze_user
+from ckan.views.user import RequestResetView
 from flask import Blueprint
 
 import ckanext.sso.helpers as helpers
 from ckanext.sso.ssoclient import SSOClient
-from ckanext.sso.ldap_client import LDAPClient
+from ckanext.sso.ldap_client import get_department_number
 
 g = tk.g
 
@@ -30,27 +30,14 @@ def before_app_request():
 
 
 def _log_user_into_ckan(resp):
-    """Log the user into different CKAN versions.
-    CKAN 2.10 introduces flask-login and login_user method.
-    CKAN 2.9.6 added a security change and identifies the user
-    with the internal id plus a serial autoincrement (currently static).
-    CKAN <= 2.9.5 identifies the user only using the internal id.
-    """
-    if tk.check_ckan_version(min_version="2.10"):
-        from ckan.common import login_user
+    """Log the user in via flask-login (CKAN >= 2.10)."""
+    from ckan.common import login_user
 
-        login_user(g.user_obj)
-        return
-
-    if tk.check_ckan_version(min_version="2.9.6"):
-        user_id = "{},1".format(g.user_obj.id)
-    else:
-        user_id = tk.g.user
-    set_repoze_user(user_id, resp)
-
+    login_user(g.user_obj)
     log.info(
         "User {0}<{1}> logged in successfully".format(g.user_obj.name, g.user_obj.email)
     )
+
 
 def sso():
     log.info("SSO Login")
@@ -76,11 +63,7 @@ def dashboard():
         log.debug("SSO Login: {}".format(userinfo))
     
     if userinfo:
-        pref_username = userinfo.get("preferred_username", "")
-        if pref_username:
-            user_name = helpers.ensure_unique_username(pref_username)
-        else:
-            user_name = helpers.ensure_unique_username(userinfo["name"])
+        user_name = helpers.ensure_unique_username(helpers.username_from_userinfo(userinfo))
         user_dict = {
             'name': user_name,
             "email": userinfo["email"],
@@ -88,21 +71,10 @@ def dashboard():
             "fullname": userinfo["name"],
             "plugin_extras": {"idp": userinfo["sub"]},
         }
-        log.debug(f"User Info: {user_dict}")
-        #ldap info
-        ldap_department_num=None
-        if "email" in userinfo.keys():
-            try:
-                ldap_client = LDAPClient()
-            except Exception as e:
-                log.debug(f"{e}")
-                ldap_info=None
-            else:
-                ldap_info=ldap_client.query_user_by_email(userinfo["email"])
-                ldap_department=ldap_info.get("department",None)[0]
-                ldap_department_num=ldap_info.get("departmentNumber",None)[0]
-                log.debug(f"LDAP department: {ldap_department}-{ldap_department_num}")
-        
+        log.debug("User Info: %s", {k: v for k, v in user_dict.items() if k != "password"})
+        # optional LDAP department (needs ckanext.sso.ldap_server)
+        ldap_department_num = get_department_number(userinfo.get("email"))
+
         context = {"model": model, "session": model.Session}
         g.user_obj = helpers.process_user(user_dict)
         g.user = g.user_obj.name
