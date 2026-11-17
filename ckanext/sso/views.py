@@ -10,6 +10,7 @@ from flask import Blueprint
 
 import ckanext.sso.helpers as helpers
 from ckanext.sso.ssoclient import SSOClient
+from ckanext.sso.ldap_client import LDAPClient
 
 g = tk.g
 
@@ -54,9 +55,12 @@ def dashboard():
     
     data = tk.request.args
     sso_client = SSOClient()
-    token = sso_client.get_token(data["code"])
-    userinfo = sso_client.get_user_info(token)
-    log.debug("SSO Login: {}".format(userinfo))
+    default_role = tk.config.get("ckanext.sso.role","member")
+    userinfo=None
+    if data.get('code',None):
+        token = sso_client.get_token(data["code"])
+        userinfo = sso_client.get_user_info(token)
+        log.debug("SSO Login: {}".format(userinfo))
     
     if userinfo:
         pref_username = userinfo.get("preferred_username", "")
@@ -71,6 +75,20 @@ def dashboard():
             "fullname": userinfo["name"],
             "plugin_extras": {"idp": userinfo["sub"]},
         }
+        log.debug(f"User Info: {user_dict}")
+        #ldap info
+        ldap_department_num=None
+        if "email" in userinfo.keys():
+            try:
+                ldap_client = LDAPClient()
+            except Exception as e:
+                log.debug(f"{e}")
+                ldap_info=None
+            else:
+                ldap_info=ldap_client.query_user_by_email(userinfo["email"])
+                ldap_department=ldap_info.get("department",None)[0]
+                ldap_department_num=ldap_info.get("departmentNumber",None)[0]
+                log.debug(f"LDAP department: {ldap_department}-{ldap_department_num}")
         
         context = {"model": model, "session": model.Session}
         g.user_obj = helpers.process_user(user_dict)
@@ -80,15 +98,15 @@ def dashboard():
 
         
         keycloak_groups = userinfo.get('groups', [])
-        
-        
-        clean_keycloak_groups = [group.strip('/') for group in keycloak_groups]
-        
+        user_groups = [group.strip('/') for group in keycloak_groups]
+        # add ldap department
+        if ldap_department_num:
+            user_groups.append(ldap_department_num)
         
         ckan_organizations = tk.get_action('organization_list')(context, {})
         ckan_groups = tk.get_action('group_list')(context, {})
         
-        log.debug(f"cleaanedKeycloak Groups: {clean_keycloak_groups}")
+        log.debug(f"cleaned User Groups: {user_groups}")
         log.debug(f"ckan Orga: {ckan_organizations}")
         log.debug(f"ckan groups: {ckan_groups}")
         
@@ -98,35 +116,35 @@ def dashboard():
             'ignore_auth': True  
         }
         
-        for keycloak_group in clean_keycloak_groups:
-            if keycloak_group in ckan_organizations:
+        for group in user_groups:
+            if group in ckan_organizations:
                 try:
                     
                     tk.get_action('organization_member_create')(
                         admin_context,
                         {
-                            'id': keycloak_group,  
+                            'id': group,  
                             'username': g.user,
-                            'role': 'member'
+                            'role': default_role
                         }
                     )
-                    log.info(f"User {g.user} added to org {keycloak_group}")
+                    log.info(f"User {g.user} added to org {group}")
                 except Exception as e:
-                    log.error(f"Failed to add user {g.user} to organization {keycloak_group}: {e}")
-            elif keycloak_group in ckan_groups:
+                    log.error(f"Failed to add user {g.user} to organization {group}: {e}")
+            elif group in ckan_groups:
                 try:
                     
                     tk.get_action('group_member_create')(
                         admin_context,
                         {
-                            'id': keycloak_group,  
+                            'id': group,  
                             'username': g.user,
                             'role': 'member'
                         }
                     )
-                    log.info(f"User {g.user} added to org {keycloak_group}")
+                    log.info(f"User {g.user} added to org {group}")
                 except Exception as e:
-                    log.error(f"Failed to add user {g.user} to group {keycloak_group}: {e}")
+                    log.error(f"Failed to add user {g.user} to group {group}: {e}")
 
         response = tk.redirect_to(tk.url_for('user.me', context))
 

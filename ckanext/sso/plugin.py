@@ -57,6 +57,11 @@ class SSOPlugin(plugins.SingletonPlugin):
         declaration.declare(group.redirect_url, "http://localhost/dashboard")
         declaration.declare(group.response_type, "code")
         declaration.declare(group.scope, "openid profile email")
+        declaration.declare(group.role, "member")
+        declaration.declare(group.ldap_server, "ldap://ad.example.com")
+        declaration.declare(group.ldap_base_dn, "ou=People,ou=IWM,dc=iwm,dc=fraunhofer,dc=de")
+        declaration.declare(group.ldap_user, "ldap-user")
+        declaration.declare(group.ldap_pass, "password")
 
     def get_blueprint(self):
         return get_blueprint()
