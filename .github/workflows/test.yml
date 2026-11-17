@@ -85,7 +85,7 @@ jobs:
       run: |
         ckan -c test.ini db init
     - name: Run tests
-      run: pytest --ckan-ini=test.ini --cov=ckanext.sso --disable-warnings ckanext/sso || ([ $? = 5 ] && exit 0 || exit $?)
+      run: pytest --ckan-ini=test.ini --cov=ckanext.sso --disable-warnings ckanext/sso
     - name: Upload coverage report to codecov
       uses: codecov/codecov-action@v1
       with:
