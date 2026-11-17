@@ -21,3 +21,7 @@ def test_ldap_is_opt_in():
     keys = _declared_keys()
     for name in ("ldap_server", "ldap_base_dn", "ldap_user", "ldap_pass"):
         assert not keys["ckanext.sso." + name]
+
+
+def test_profile_username_field_default():
+    assert _declared_keys()["ckanext.sso.profile_username_field"] == "preferred_username"

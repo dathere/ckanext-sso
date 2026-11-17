@@ -58,6 +58,7 @@ class SSOPlugin(plugins.SingletonPlugin):
         declaration.declare(group.response_type, "code")
         declaration.declare(group.scope, "openid profile email")
         declaration.declare(group.role, "member")
+        declaration.declare(group.profile_username_field, "preferred_username")
         # LDAP is optional: it is only used when ldap_server is set
         declaration.declare(group.ldap_server, "")
         declaration.declare(group.ldap_base_dn, "")

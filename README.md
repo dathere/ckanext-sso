@@ -55,6 +55,7 @@ ckanext.sso.access_token_url = [access_token_url]
 ckanext.sso.user_info = [user_info_url]
 ckanext.sso.disable_ckan_login = [True|False]
 ckanext.sso.role = ["member"|"editor"|"admin"]
+ckanext.sso.profile_username_field = [preferred_username]
 ```
 
 With Docker the same options can be set as `CKANINI__CKANEXT__SSO__<OPTION>` environment variables.
@@ -66,6 +67,7 @@ With Docker the same options can be set as `CKANINI__CKANEXT__SSO__<OPTION>` env
 | `redirect_url` | `http://localhost/dashboard` | Must be `https://<your-ckan>/dashboard` and registered at the provider |
 | `response_type`, `scope` | `code`, `openid profile email` | OAuth2 settings |
 | `disable_ckan_login` | `false` | Hide the CKAN username/password login |
+| `profile_username_field` | `preferred_username` | Claim of the user info that the CKAN username is derived from (falls back to `name` when the claim is missing). Only applies to newly created users; existing users are matched by email |
 | `role` | `member` | Role given to a user in the organizations they are mapped to (see below) |
 | `ldap_server`, `ldap_base_dn`, `ldap_user`, `ldap_pass` | empty | Optional LDAP lookup, see below |
 

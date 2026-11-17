@@ -41,6 +41,17 @@ def normalize_and_replace_umlauts(input_str):
     return cleaned_str
 
 
+def username_from_userinfo(userinfo):
+    """Name to derive the CKAN username from.
+
+    Uses the claim named by ``ckanext.sso.profile_username_field`` (default
+    ``preferred_username``) and falls back to the ``name`` claim when that claim
+    is missing or empty.
+    """
+    field = tk.config.get("ckanext.sso.profile_username_field") or "preferred_username"
+    return userinfo.get(field) or userinfo["name"]
+
+
 def ensure_unique_username(name):
     """Ensure that the username is unique."""
     cleaned_name = normalize_and_replace_umlauts(name)
