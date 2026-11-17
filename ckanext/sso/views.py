@@ -10,7 +10,7 @@ from flask import Blueprint
 
 import ckanext.sso.helpers as helpers
 from ckanext.sso.ssoclient import SSOClient
-from ckanext.sso.ldap_client import LDAPClient
+from ckanext.sso.ldap_client import get_department_number
 
 g = tk.g
 
@@ -75,21 +75,10 @@ def dashboard():
             "fullname": userinfo["name"],
             "plugin_extras": {"idp": userinfo["sub"]},
         }
-        log.debug(f"User Info: {user_dict}")
-        #ldap info
-        ldap_department_num=None
-        if "email" in userinfo.keys():
-            try:
-                ldap_client = LDAPClient()
-            except Exception as e:
-                log.debug(f"{e}")
-                ldap_info=None
-            else:
-                ldap_info=ldap_client.query_user_by_email(userinfo["email"])
-                ldap_department=ldap_info.get("department",None)[0]
-                ldap_department_num=ldap_info.get("departmentNumber",None)[0]
-                log.debug(f"LDAP department: {ldap_department}-{ldap_department_num}")
-        
+        log.debug("User Info: %s", {k: v for k, v in user_dict.items() if k != "password"})
+        # optional LDAP department (needs ckanext.sso.ldap_server)
+        ldap_department_num = get_department_number(userinfo.get("email"))
+
         context = {"model": model, "session": model.Session}
         g.user_obj = helpers.process_user(user_dict)
         g.user = g.user_obj.name

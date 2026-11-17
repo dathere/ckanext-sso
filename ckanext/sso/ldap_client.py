@@ -12,6 +12,29 @@ def build_ldap_connection(server_address, username, password):
         conn = Connection(server, user=username, password=password, auto_bind=True)
         return conn
 
+def get_department_number(email):
+    """Return the LDAP ``departmentNumber`` of the user with this email, or None.
+
+    LDAP is optional: without ``ckanext.sso.ldap_server`` nothing is contacted.
+    A failing connection, an unknown user or a missing attribute never break the
+    login, they just mean "no department".
+    """
+    if not email or not tk.config.get("ckanext.sso.ldap_server"):
+        return None
+    try:
+        client = LDAPClient()
+        info = client.query_user_by_email(email) or {}
+    except Exception as e:
+        log.warning("LDAP lookup for %s failed: %s", email, e)
+        return None
+    numbers = info.get("departmentNumber") or []
+    if not numbers:
+        log.debug("LDAP: no departmentNumber for %s", email)
+        return None
+    log.debug("LDAP department: %s-%s", (info.get("department") or [None])[0], numbers[0])
+    return numbers[0]
+
+
 class LDAPClient(object):
     def __init__(self):
         self.server_address = tk.config.get("ckanext.sso.ldap_server")
